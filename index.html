@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>羽田 手売りチケット管理</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%AB%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#e9eef5; --surface:#ffffff; --surface2:#f3f6fa;
+  --ink:#13203a; --muted:#566379; --line:#d1dae6;
+  --brand:#0a4fa3; --brand-ink:#ffffff; --focus:#0a4fa3;
+  --stock:#a3b0c4; --wait:#f2a900; --done:#1c9a68;
+  --stock-bg:#e6ebf3; --wait-bg:#fff3d1; --done-bg:#dcf3e8;
+  --wait-ink:#2a1d00; --done-ink:#ffffff;
+  --danger:#b83030; --danger-bg:#c23b3b;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme: dark;
+    --bg:#0e1522; --surface:#162133; --surface2:#1c2a40;
+    --ink:#e7edf7; --muted:#9aa8bd; --line:#2b3a52;
+    --brand:#5b9bff; --brand-ink:#0b1424; --focus:#8bb8ff;
+    --stock:#5d6c85; --wait:#f2b72b; --done:#3cc48e;
+    --stock-bg:#1f2d44; --wait-bg:#3a2f12; --done-bg:#12342a;
+    --wait-ink:#2a1d00; --done-ink:#06251a;
+    --danger:#ff8a8a; --danger-bg:#d14545;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;font-size:14px}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:1rem/1.5 "Zen Kaku Gothic New","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",sans-serif}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.wrap{max-width:960px;margin:0 auto;padding:12px 12px 70px}
+
+/* header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:6px 8px;flex-wrap:wrap;margin-bottom:10px}
+h1{margin:0;font-size:1.15rem;font-weight:900;letter-spacing:.02em}
+.top-acts{display:flex;gap:8px}
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 11px;
+  cursor:pointer;font-weight:700;min-height:34px;font-size:.9rem}
+.btn:hover{border-color:var(--brand)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.btn.primary:hover{filter:brightness(1.1)}
+.btn.primary.danger-fill{background:var(--danger-bg);border-color:var(--danger-bg);color:#fff}
+.btn.ghost{background:transparent}
+.btn.sm{padding:2px 9px;min-height:28px;font-size:.78rem}
+.btn.danger{color:var(--danger)}
+.notice{background:var(--wait-bg);border:1px solid var(--wait);border-radius:8px;padding:10px 14px;margin:0 0 14px;font-size:.9rem}
+
+/* dashboard */
+.dash{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+.dash-head{display:flex;align-items:baseline;gap:12px}
+.hero{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.hero-label{font-weight:700;color:var(--muted)}
+.hero-num{font-size:2.4rem;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;color:var(--done)}
+.hero-of{font-size:.9rem;font-weight:700}
+.pct{margin-left:auto;font-weight:900;font-size:1rem;font-variant-numeric:tabular-nums}
+.bar{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--stock-bg);margin:8px 0}
+.bar i{display:block;min-width:0}
+.bar .done{background:var(--done)} .bar .wait{background:var(--wait)} .bar .stock{background:var(--stock)}
+.counts{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:0}
+.count{padding:5px 8px;border-radius:8px;background:var(--surface2)}
+.count dt{font-size:.68rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.count dd{margin:0;font-size:1.2rem;font-weight:900;line-height:1.2;font-variant-numeric:tabular-nums}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ink)}
+.c-stock,.s-stock .dot{background:var(--stock)}
+.c-wait,.s-transfer .dot{background:var(--wait)}
+.c-done,.s-done .dot{background:var(--done)}
+.methods{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.mcell{border:1px solid var(--line);border-radius:8px;padding:3px 8px;font-size:.75rem;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 8px}
+.mname{font-weight:700}
+.mcell b{font-variant-numeric:tabular-nums}
+.mcell span+span{margin-left:0}
+.map{margin-top:8px}
+.map summary{cursor:pointer;font-weight:700;color:var(--muted);font-size:.8rem}
+.nchips{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
+.nchip{appearance:none;min-width:34px;padding:1px 5px;border-radius:6px;border:1px solid transparent;cursor:pointer;
+  font-weight:700;font-size:.72rem;font-variant-numeric:tabular-nums;text-align:center}
+.nchip.s-stock{background:var(--stock-bg);border-color:var(--line);color:var(--ink)}
+.nchip.s-transfer{background:var(--wait);color:var(--wait-ink)}
+.nchip.s-done{background:var(--done);color:var(--done-ink)}
+.muted{color:var(--muted);font-size:.9rem;margin:8px 0 0}
+
+/* tabs */
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--line);margin-bottom:8px;overflow-x:auto}
+.tab{appearance:none;border:0;background:none;font-size:.88rem;padding:6px 9px;font-weight:700;cursor:pointer;color:var(--muted);
+  border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--brand)}
+.tab .n{margin-left:4px;padding:0 6px;border-radius:99px;background:var(--surface2);font-size:.75rem;font-variant-numeric:tabular-nums}
+.hint-line{margin:0 0 6px;color:var(--muted);font-size:.75rem}
+.fchips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px}
+.fchip{appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:2px 9px;cursor:pointer;font-weight:700;font-size:.76rem}
+.fchip[aria-pressed=true]{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.fchip b{margin-left:4px;font-variant-numeric:tabular-nums}
+.gh{display:flex;align-items:baseline;gap:8px;margin:10px 0 5px;font-size:.9rem;font-weight:900}
+.gn{font-size:.82rem;color:var(--muted);font-weight:700}
+.empty{padding:18px 12px;text-align:center;color:var(--muted);border:2px dashed var(--line);border-radius:10px}
+
+/* ticket row (stub style) */
+.row{display:flex;flex-wrap:wrap;position:relative;overflow:hidden;background:var(--surface);
+  border:1px solid var(--line);border-radius:8px;margin-bottom:6px}
+.stub{flex:0 0 60px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:6px 4px;border-right:2px dashed var(--line);position:relative}
+.stub::before,.stub::after{content:"";position:absolute;right:-7px;width:12px;height:12px;border-radius:50%;
+  background:var(--bg);border:1px solid var(--line)}
+.stub::before{top:-7px} .stub::after{bottom:-7px}
+.stub small{font-size:.6rem;color:var(--muted);line-height:1.2}
+.stub b{font-size:1.15rem;font-weight:900;line-height:1.2;font-variant-numeric:tabular-nums;word-break:break-all;text-align:center}
+.row.s-stock .stub{background:var(--stock-bg)}
+.row.s-transfer .stub{background:var(--wait-bg)}
+.row.s-done .stub{background:var(--done-bg)}
+.rbody{flex:1 1 0;min-width:0;padding:6px 10px}
+.rhead{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-bottom:2px}
+.pill,.tag{display:inline-flex;align-items:center;gap:4px;padding:0 7px;border-radius:99px;font-size:.7rem;font-weight:700;
+  border:1px solid var(--line);background:var(--surface2)}
+.note{font-size:.78rem;color:var(--muted);overflow-wrap:anywhere}
+.kvs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:1px 12px;margin:3px 0 0}
+.kv{min-width:0;display:flex;gap:5px;align-items:baseline}
+.kv.wide{grid-column:1/-1}
+.kv dt{font-size:.65rem;color:var(--muted);line-height:1.4;white-space:nowrap}
+.kv dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.82rem;line-height:1.4}
+.racts{flex:0 0 auto;display:flex;flex-direction:row;flex-wrap:wrap;gap:4px;justify-content:flex-end;align-content:center;align-items:center;max-width:200px;padding:6px 8px}
+.check{display:flex;align-items:center;gap:5px;font-weight:700;font-size:.8rem;padding:2px 4px;cursor:pointer;white-space:nowrap}
+.check input{width:18px;height:18px;accent-color:var(--done)}
+@media (max-width:640px){
+  .methods{grid-template-columns:repeat(2,1fr)}
+  .hero-num{font-size:2.2rem}
+  .stub{flex-basis:54px}
+  .racts{width:100%;max-width:none;justify-content:flex-start;border-top:1px solid var(--line);padding:4px 8px}
+}
+
+/* wishes */
+.row.s-wish .stub{background:var(--surface2)}
+.stub b.q{font-size:1rem}
+.wishsum{margin-top:8px;padding:6px 10px;border-radius:8px;background:var(--surface2);font-size:.8rem}
+.wishsum b{font-variant-numeric:tabular-nums}
+.wishsum .short{color:var(--danger);font-weight:700}
+.wishsum .bar{height:8px;margin:6px 0 4px;background:var(--line)}
+.bar .got{background:var(--done)} .bar .cover{background:var(--wait)} .bar .lack{background:var(--danger-bg)}
+.lackdot{background:var(--danger-bg)}
+.wlegend{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:.72rem;color:var(--muted)}
+.wlegend span{display:inline-flex;align-items:center;gap:5px}
+.linked{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;margin-top:8px;font-size:.78rem;color:var(--muted)}
+
+/* dialogs */
+dialog{border:1px solid var(--line);border-radius:14px;padding:0;background:var(--surface);color:var(--ink);
+  width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 24px)}
+dialog::backdrop{background:rgba(8,14,26,.55)}
+.dlg{padding:14px;display:flex;flex-direction:column;gap:9px;margin:0}
+.dlg h2{margin:0;font-size:1rem;font-weight:900}
+.dlg p{margin:0}
+.fld{display:flex;flex-direction:column;gap:2px;font-weight:700;font-size:.8rem}
+.fld input,.fld textarea,.fld select{border:1px solid var(--line);background:var(--surface2);border-radius:8px;
+  padding:6px 9px;font-weight:400;font-size:16px;width:100%}
+.fld textarea{min-height:52px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:340px){.grid2{grid-template-columns:1fr}}
+.hint{color:var(--muted);font-size:.82rem;font-weight:400}
+.err{color:var(--danger);font-weight:700;font-size:.9rem}
+.dlg-acts{display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:var(--surface);padding-top:6px}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+legend{font-weight:700;font-size:.8rem;margin-bottom:4px;padding:0}
+.opts{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.opt{position:relative}
+.opt input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0}
+.opt span{display:block;text-align:center;padding:6px 4px;border:1px solid var(--line);border-radius:8px;
+  background:var(--surface2);font-weight:700;font-size:.82rem}
+.opt input:checked+span{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.opt input:focus-visible+span{outline:3px solid var(--focus);outline-offset:2px}
+.panel{border-left:4px solid var(--brand);padding-left:10px;display:flex;flex-direction:column;gap:6px}
+.panel[hidden]{display:none}
+.panel h3{margin:0;font-size:.85rem;font-weight:900}
+.checkline{display:flex;gap:10px;align-items:center;font-weight:700;cursor:pointer}
+.checkline input{width:22px;height:22px;accent-color:var(--done)}
+.data-btns{display:flex;flex-direction:column;gap:8px}
+.data-btns .btn{text-align:left;display:block}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--bg);
+  padding:10px 16px;border-radius:8px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;
+  z-index:100;max-width:calc(100vw - 32px)}
+.toast.show{opacity:1;transform:translateX(-50%)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>羽田 手売りチケット管理</h1>
+    <div class="top-acts">
+      <button class="btn primary" data-action="add">＋ チケットを追加</button>
+      <button class="btn" data-action="addWish">＋ 希望者を追加</button>
+      <button class="btn" data-action="data">データ</button>
+    </div>
+  </header>
+
+  <p id="notice" class="notice" hidden>この環境ではブラウザへの自動保存が使えません。ページを閉じるとデータが消えるため、「データ」からこまめに書き出してください。</p>
+
+  <section id="dash" class="dash" aria-label="ダッシュボード"></section>
+
+  <div id="tabs" class="tabs" role="tablist"></div>
+  <main id="list" role="tabpanel"></main>
+</div>
+
+<!-- チケット追加・編集 -->
+<dialog id="dlgTicket">
+  <form id="fTicket" class="dlg" autocomplete="off">
+    <h2 id="tTitle">チケットを追加</h2>
+    <label class="fld"><span>番号</span>
+      <input id="tNumber" type="text" placeholder="例：12">
+    </label>
+    <p class="hint" id="tHint">連番は「1-10」、複数は「1,3,5」の形で入力すると、まとめて追加できます。</p>
+    <label class="fld"><span>備考（任意）</span>
+      <input id="tNote" type="text" placeholder="例：A席、2026/12/1公演">
+    </label>
+    <p class="err" id="tErr" role="alert"></p>
+    <div class="dlg-acts">
+      <button type="button" class="btn ghost" data-close>キャンセル</button>
+      <button type="submit" class="btn primary" id="tSubmit">追加</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 希望者 -->
+<dialog id="dlgWish">
+  <form id="fWish" class="dlg" autocomplete="off">
+    <h2 id="wTitle">希望者を追加</h2>
+    <label class="fld"><span>名前</span><input id="wName" type="text"></label>
+    <div class="grid2">
+      <label class="fld"><span>ユーザーID</span><input id="wUser" type="text"></label>
+      <label class="fld"><span>メールアドレス</span><input id="wEmail" type="text" inputmode="email"></label>
+    </div>
+    <label class="fld"><span>希望枚数</span><input id="wQty" type="number" min="1" max="99" value="1" inputmode="numeric"></label>
+    <label class="fld"><span>メモ（任意）</span><textarea id="wMemo"></textarea></label>
+    <p class="err" id="wErr" role="alert"></p>
+    <div class="dlg-acts">
+      <button type="button" class="btn ghost" data-close>キャンセル</button>
+      <button type="submit" class="btn primary" id="wSubmit">追加</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 番号の割り当て -->
+<dialog id="dlgAssign">
+  <form id="fAssign" class="dlg">
+    <h2>番号を割り当てる</h2>
+    <p id="aInfo"></p>
+    <label class="fld"><span>未譲渡のチケット番号</span><select id="aTicket"></select></label>
+    <p class="hint">「次へ」を押すと譲渡画面が開き、希望者の情報が入力された状態になります。譲渡方法を選んで確定すると割り当て完了です。</p>
+    <div class="dlg-acts">
+      <button type="button" class="btn ghost" data-close>キャンセル</button>
+      <button type="submit" class="btn primary">次へ</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 譲渡 -->
+<dialog id="dlgTransfer">
+  <form id="fTransfer" class="dlg" autocomplete="off">
+    <h2 id="xTitle">譲渡する</h2>
+    <label class="fld"><span>希望者リストから入力（任意）</span><select id="xWish"></select></label>
+    <label class="fld"><span>名前</span><input id="xName" type="text"></label>
+    <div class="grid2">
+      <label class="fld"><span>ユーザーID</span><input id="xUser" type="text"></label>
+      <label class="fld"><span>メールアドレス</span><input id="xEmail" type="text" inputmode="email"></label>
+    </div>
+
+    <fieldset>
+      <legend>譲渡方法</legend>
+      <div class="opts" id="xMethods"></div>
+    </fieldset>
+
+    <div class="panel" id="pDay" hidden>
+      <h3>当日</h3>
+      <label class="fld"><span>メモ</span><textarea id="xDayMemo"></textarea></label>
+    </div>
+
+    <div class="panel" id="pMail" hidden>
+      <h3>郵送情報</h3>
+      <label class="fld"><span>宛先の氏名</span><input id="mRecipient" type="text"></label>
+      <div class="grid2">
+        <label class="fld"><span>郵便番号</span><input id="mZip" type="text" inputmode="numeric"></label>
+        <label class="fld"><span>発送日</span><input id="mShip" type="date"></label>
+      </div>
+      <label class="fld"><span>住所</span><textarea id="mAddress"></textarea></label>
+      <label class="fld"><span>配送方法・追跡番号</span><input id="mTracking" type="text" placeholder="例：レターパック 1234-5678-9012"></label>
+      <label class="fld"><span>備考</span><input id="mNote" type="text"></label>
+      <label class="checkline"><input type="checkbox" id="mSent"> 送付完了（チェックすると渡し済みリストへ移ります）</label>
+    </div>
+
+    <div class="panel" id="pSite" hidden>
+      <h3>現場での受け渡し</h3>
+      <label class="fld"><span>日付</span><input id="sDate" type="date"></label>
+      <label class="fld"><span>メモ</span><textarea id="sMemo"></textarea></label>
+    </div>
+
+    <p class="err" id="xErr" role="alert"></p>
+    <div class="dlg-acts">
+      <button type="button" class="btn ghost" data-close>キャンセル</button>
+      <button type="submit" class="btn primary" id="xSubmit">譲渡リストへ移す</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 確認 -->
+<dialog id="dlgConfirm" data-light>
+  <form method="dialog" class="dlg">
+    <p id="cMsg"></p>
+    <div class="dlg-acts">
+      <button class="btn ghost" value="cancel">キャンセル</button>
+      <button class="btn primary" value="ok" id="cOk">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- データ -->
+<dialog id="dlgData" data-light>
+  <div class="dlg">
+    <h2>データ</h2>
+    <p class="hint">データはこのブラウザの中だけに保存されます（端末をまたいでは共有されません）。バックアップとして書き出しておくと安心です。</p>
+    <div class="data-btns">
+      <button class="btn" data-action="exportJson">バックアップを書き出す（JSON）</button>
+      <button class="btn" data-action="exportCsv">一覧を書き出す（CSV・Excel用）</button>
+      <button class="btn" data-action="exportWishCsv">希望者リストを書き出す（CSV・Excel用）</button>
+      <label class="btn" for="fileImport" tabindex="0">バックアップから復元する</label>
+      <input type="file" id="fileImport" class="visually-hidden" accept=".json,application/json">
+      <button class="btn danger" data-action="clearAll">すべてのデータを削除</button>
+    </div>
+    <p class="err" id="dataMsg" role="alert"></p>
+    <div class="dlg-acts"><button class="btn" data-close>閉じる</button></div>
+  </div>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- 定数 ---------- */
+const KEY = 'haneda-hand-tickets-v1';
+const METHODS = [
+  { key:'day',       label:'当日',                       kind:'day'  },
+  { key:'mail',      label:'郵送',                       kind:'mail' },
+  { key:'siteNana',  label:'現場（ナナクロニクル）',       kind:'site' },
+  { key:'siteOther', label:'現場（ナナクロニクル以外）',   kind:'site' },
+];
+const STATUS_LABEL = { stock:'未譲渡', transfer:'渡し待ち', done:'渡し済み' };
+const SHORT = { day:'当日', mail:'郵送', siteNana:'現場ロル', siteOther:'現場他' };
+
+/* ---------- ユーティリティ ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const collator = new Intl.Collator('ja', { numeric:true });
+const sortTickets = a => [...a].sort((x, y) => collator.compare(x.number, y.number));
+const find = id => state.tickets.find(t => t.id === id);
+const mLabel = k => (METHODS.find(m => m.key === k) || {}).label || '';
+const kindOf = k => (METHODS.find(m => m.key === k) || {}).kind || null;
+const pad2 = n => String(n).padStart(2, '0');
+const fmtDate = s => s ? s.replace(/-/g, '/') : '';
+const fmtISO = iso => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : `${d.getFullYear()}/${pad2(d.getMonth()+1)}/${pad2(d.getDate())}`; };
+
+let tt;
+function toast(msg){
+  const el = $('#toast'); el.textContent = msg; el.classList.add('show');
+  clearTimeout(tt); tt = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+/* ---------- 保存 ---------- */
+let storageOk = true;
+function sanitize(t){
+  const status = ['stock','transfer','done'].includes(t.status) ? t.status : 'stock';
+  const method = METHODS.some(m => m.key === t.method) ? t.method : '';
+  const ok = status === 'stock' || method;
+  return {
+    id: typeof t.id === 'string' && t.id ? t.id : uid(),
+    number: String(t.number ?? ''),
+    note: String(t.note ?? ''),
+    wishId: String(t.wishId ?? ''),
+    status: ok ? status : 'stock',
+    name: String(t.name ?? ''), userId: String(t.userId ?? ''), email: String(t.email ?? ''),
+    method: ok ? method : '',
+    memo: String(t.memo ?? ''),
+    mail: t.mail && typeof t.mail === 'object' ? t.mail : {},
+    site: t.site && typeof t.site === 'object' ? t.site : {},
+    transferredAt: t.transferredAt || null,
+    doneAt: t.doneAt || null,
+  };
+}
+function sanitizeWish(w){
+  let qty = parseInt(w.qty, 10); if (!(qty >= 1)) qty = 1; if (qty > 99) qty = 99;
+  return {
+    id: typeof w.id === 'string' && w.id ? w.id : uid(),
+    name: String(w.name ?? ''), userId: String(w.userId ?? ''), email: String(w.email ?? ''),
+    qty, memo: String(w.memo ?? ''), createdAt: w.createdAt || new Date().toISOString(),
+  };
+}
+function load(){
+  try{
+    const probe = KEY + '-probe';
+    localStorage.setItem(probe, '1'); localStorage.removeItem(probe);
+    const s = localStorage.getItem(KEY);
+    if (s){
+      const d = JSON.parse(s);
+      if (d && Array.isArray(d.tickets)) return {
+        tickets: d.tickets.map(sanitize),
+        wishes: Array.isArray(d.wishes) ? d.wishes.map(sanitizeWish) : [],
+      };
+    }
+  }catch(e){ storageOk = false; }
+  return { tickets: [], wishes: [] };
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch(e){ storageOk = false; $('#notice').hidden = false; }
+}
+
+const state = load();
+const ui = { tab:'stock', filter:'all', mapOpen:false };
+
+/* ---------- 描画 ---------- */
+function renderDash(){
+  const T = state.tickets, total = T.length;
+  const c = { stock:0, transfer:0, done:0 };
+  T.forEach(t => c[t.status]++);
+  const pct = total ? Math.round(c.done / total * 100) : 0;
+  const per = {}; METHODS.forEach(m => per[m.key] = { transfer:0, done:0 });
+  T.forEach(t => { if (per[t.method] && t.status !== 'stock') per[t.method][t.status]++; });
+
+  const counts = [
+    ['希望者', state.wishes.length, 'dot'], ['全体', total, 'dot'], ['未譲渡', c.stock, 'dot c-stock'],
+    ['渡し待ち', c.transfer, 'dot c-wait'], ['渡し済み', c.done, 'dot c-done'],
+  ].map(([l, n, cls]) => `<div class="count"><dt><i class="${cls}"></i>${l}</dt><dd>${n}</dd></div>`).join('');
+
+  const methods = METHODS.map(m => `<div class="mcell"><span class="mname">${esc(SHORT[m.key])}</span><span>待 <b>${per[m.key].transfer}</b></span><span>済 <b>${per[m.key].done}</b></span></div>`).join('');
+
+  const chips = sortTickets(T).map(t => {
+    const tip = `No.${t.number} ${STATUS_LABEL[t.status]}${t.method ? '／' + mLabel(t.method) : ''}${t.name ? '／' + t.name : ''}`;
+    return `<button class="nchip s-${t.status}" data-action="open" data-id="${esc(t.id)}" title="${esc(tip)}" aria-label="${esc(tip)}">${esc(t.number)}</button>`;
+  }).join('');
+
+  $('#dash').innerHTML = `
+    <div class="dash-head">
+      <div class="hero"><span class="hero-label">渡し済み</span><span class="hero-num">${c.done}</span><span class="hero-of">/ 全体 ${total} 枚</span></div>
+      <div class="pct">${pct}%</div>
+    </div>
+    <div class="bar" role="img" aria-label="渡し済み${c.done}枚、譲渡リスト${c.transfer}枚、未譲渡${c.stock}枚">
+      <i class="done" style="flex:${c.done}"></i><i class="wait" style="flex:${c.transfer}"></i><i class="stock" style="flex:${c.stock}"></i>
+    </div>
+    <dl class="counts">${counts}</dl>
+    <div class="methods">${methods}</div>${wishSummary()}
+    <details class="map" id="mapDetails" ${ui.mapOpen ? 'open' : ''}>
+      <summary>番号マップ</summary>
+      ${total ? `<div class="nchips">${chips}</div>` : `<p class="muted">チケットを追加すると、番号がここに並びます。</p>`}
+    </details>`;
+}
+
+const findWish = id => state.wishes.find(w => w.id === id);
+const linkedTickets = w => sortTickets(state.tickets.filter(t => t.wishId === w.id && t.status !== 'stock'));
+const remaining = w => Math.max(0, w.qty - linkedTickets(w).length);
+
+function wishSummary(){
+  if (!state.wishes.length) return '';
+  const qty = state.wishes.reduce((s, w) => s + w.qty, 0);
+  const rem = state.wishes.reduce((s, w) => s + remaining(w), 0);
+  const stock = state.tickets.filter(t => t.status === 'stock').length;
+  const diff = rem - stock;
+  const got = qty - rem, cover = Math.min(rem, stock), lack = Math.max(0, diff);
+  const bar = `<div class="bar" role="img" aria-label="希望${qty}枚のうち、割当済${got}枚、割当可能${cover}枚、不足${lack}枚">
+      <i class="got" style="flex:${got}"></i><i class="cover" style="flex:${cover}"></i><i class="lack" style="flex:${lack}"></i></div>
+    <div class="wlegend"><span><i class="dot c-done"></i>割当済 ${got}</span><span><i class="dot c-wait"></i>割当可能 ${cover}</span><span><i class="dot lackdot"></i>不足 ${lack}</span></div>`;
+  const note = diff > 0 ? `<span class="short">${diff}枚不足</span>` : `${stock - rem}枚余り`;
+  return `<div class="wishsum"><b>希望 ${qty}枚（${state.wishes.length}人）</b>・未譲渡 <b>${stock}</b>枚 → ${note}${bar}</div>`;
+}
+
+function wishRow(w, idx){
+  const L = linkedTickets(w), rem = Math.max(0, w.qty - L.length);
+  const st = L.length === 0 ? ['c-stock', '未割当'] : rem > 0 ? ['c-wait', `一部割当 ${L.length}/${w.qty}`] : ['c-done', '割当済み'];
+  const id = esc(w.id);
+  const nums = L.length
+    ? `<div class="linked">割当番号 ${L.map(t => `<button class="nchip s-${t.status}" data-action="open" data-id="${esc(t.id)}" title="${esc(STATUS_LABEL[t.status])}">${esc(t.number)}</button>`).join('')}</div>`
+    : '';
+  return `<article class="row s-wish">
+    <div class="stub"><small>${idx + 1}番目</small><b class="q">${w.qty}枚</b></div>
+    <div class="rbody">
+      <div class="rhead"><span class="pill"><i class="dot ${st[0]}"></i>${st[1]}</span></div>
+      <dl class="kvs">${kv('名前', w.name) + kv('ユーザーID', w.userId) + kv('メール', w.email) + kv('メモ', w.memo, true)}</dl>${nums}
+    </div>
+    <div class="racts">${rem > 0 ? `<button class="btn primary sm" data-action="assign" data-id="${id}">番号を割り当て</button>` : ''}<button class="btn sm" data-action="editWish" data-id="${id}">編集</button><button class="btn sm danger" data-action="deleteWish" data-id="${id}">削除</button></div>
+  </article>`;
+}
+
+function wishList(){
+  const all = state.wishes.map((w, i) => ({ w, i, rem: remaining(w) }));
+  const f = { all, open: all.filter(x => x.rem > 0), done: all.filter(x => x.rem === 0) };
+  const chips = [['all', 'すべて'], ['open', '未割当あり'], ['done', '割当済み']]
+    .map(([k, l]) => `<button class="fchip" data-action="filter" data-key="${k}" aria-pressed="${ui.filter === k}">${l}<b>${f[k].length}</b></button>`).join('');
+  const items = f[ui.filter] || all;
+  const hint = `<p class="hint-line">番号が決まったら「番号を割り当て」を押すと、希望者の情報が入った状態で譲渡画面が開きます。</p>`;
+  const body = items.length ? items.map(x => wishRow(x.w, x.i)).join('')
+    : empty(all.length ? '該当する希望者はいません。' : 'まだ希望者がいません。右上の「希望者を追加」から登録してください。');
+  return hint + `<div class="fchips">${chips}</div>` + body;
+}
+
+function renderTabs(){
+  const n = s => s === 'wish' ? state.wishes.length : state.tickets.filter(t => t.status === s).length;
+  const tabs = [['wish','希望者'], ['stock','未譲渡'], ['transfer','譲渡リスト'], ['done','渡し済み']];
+  $('#tabs').innerHTML = tabs.map(([k, l]) =>
+    `<button class="tab" role="tab" data-action="tab" data-key="${k}" aria-selected="${ui.tab === k}">${l}<span class="n">${n(k)}</span></button>`).join('');
+}
+
+function kv(label, val, wide){
+  return val ? `<div class="kv${wide ? ' wide' : ''}"><dt>${label}</dt><dd>${esc(val)}</dd></div>` : '';
+}
+function details(t){
+  const person = kv('名前', t.name) + kv('ユーザーID', t.userId) + kv('メール', t.email);
+  const kind = kindOf(t.method);
+  let extra = '';
+  if (kind === 'day') extra = kv('メモ', t.memo, true);
+  else if (kind === 'mail'){
+    const m = t.mail || {};
+    extra = kv('宛先', m.recipient) + kv('〒', m.zip) + kv('発送日', fmtDate(m.shipDate)) +
+            kv('配送・追跡', m.tracking) + kv('住所', m.address, true) + kv('備考', m.note, true);
+  } else if (kind === 'site'){
+    const s = t.site || {};
+    extra = kv('日付', fmtDate(s.date)) + kv('メモ', s.memo, true);
+  }
+  if (t.status === 'done') extra += kv('渡し済み日', fmtISO(t.doneAt));
+  const html = person + extra;
+  return html ? `<dl class="kvs">${html}</dl>` : '';
+}
+
+function acts(t){
+  const id = esc(t.id);
+  if (t.status === 'stock'){
+    return `<button class="btn primary sm" data-action="transfer" data-id="${id}">譲渡</button>
+      <button class="btn sm" data-action="editTicket" data-id="${id}">編集</button>
+      <button class="btn sm danger" data-action="delete" data-id="${id}">削除</button>`;
+  }
+  const edit = `<button class="btn sm" data-action="transfer" data-id="${id}">編集</button>`;
+  if (t.status === 'transfer'){
+    const main = t.method === 'mail'
+      ? `<label class="check"><input type="checkbox" data-action="toggleSent" data-id="${id}">送付完了</label>`
+      : `<button class="btn primary sm" data-action="markDone" data-id="${id}">渡し済みにする</button>`;
+    return main + edit + `<button class="btn sm danger" data-action="cancelTransfer" data-id="${id}">譲渡を取消</button>`;
+  }
+  const main = t.method === 'mail'
+    ? `<label class="check"><input type="checkbox" checked data-action="toggleSent" data-id="${id}">送付完了</label>`
+    : `<button class="btn sm" data-action="undoDone" data-id="${id}">渡し待ちに戻す</button>`;
+  return main + edit;
+}
+
+function row(t){
+  const head = `<div class="rhead"><span class="pill s-${t.status}"><i class="dot"></i>${STATUS_LABEL[t.status]}</span>` +
+    (t.method ? `<span class="tag">${esc(mLabel(t.method))}</span>` : '') +
+    (t.note ? `<span class="note">${esc(t.note)}</span>` : '') + `</div>`;
+  return `<article class="row s-${t.status}">
+    <div class="stub"><small>No.</small><b>${esc(t.number)}</b></div>
+    <div class="rbody">${head}${t.status === 'stock' ? '' : details(t)}</div>
+    <div class="racts">${acts(t)}</div>
+  </article>`;
+}
+
+const empty = msg => `<div class="empty">${esc(msg)}</div>`;
+
+function grouped(status){
+  const base = state.tickets.filter(t => t.status === status);
+  const hint = status === 'transfer'
+    ? `<p class="hint-line">郵送は「送付完了」にチェック、当日・現場は「渡し済みにする」を押すと、渡し済みリストへ移ります。</p>` : '';
+  const chips = [{ key:'all', label:'すべて', n:base.length },
+    ...METHODS.map(m => ({ key:m.key, label:SHORT[m.key], n:base.filter(t => t.method === m.key).length }))]
+    .map(c => `<button class="fchip" data-action="filter" data-key="${c.key}" aria-pressed="${ui.filter === c.key}">${esc(c.label)}<b>${c.n}</b></button>`).join('');
+  let body = '';
+  METHODS.forEach(m => {
+    if (ui.filter !== 'all' && ui.filter !== m.key) return;
+    const items = sortTickets(base.filter(t => t.method === m.key));
+    if (!items.length) return;
+    body += `<h3 class="gh">${esc(m.label)}<span class="gn">${items.length}枚</span></h3>` + items.map(row).join('');
+  });
+  if (!body) body = empty(status === 'transfer' ? '譲渡リストは空です。未譲渡のチケットで「譲渡」を押すとここに入ります。' : '渡し済みのチケットはまだありません。');
+  return hint + `<div class="fchips">${chips}</div>` + body;
+}
+
+function renderList(){
+  const el = $('#list');
+  if (ui.tab === 'wish'){ el.innerHTML = wishList(); return; }
+  if (ui.tab === 'stock'){
+    const items = sortTickets(state.tickets.filter(t => t.status === 'stock'));
+    el.innerHTML = items.length ? items.map(row).join('')
+      : empty(state.tickets.length ? '未譲渡のチケットはありません。' : 'まだチケットがありません。右上の「チケットを追加」から番号を登録してください。');
+  } else {
+    el.innerHTML = grouped(ui.tab);
+  }
+}
+
+function render(){ renderDash(); renderTabs(); renderList(); }
+
+/* ---------- 確認ダイアログ ---------- */
+function ask(msg, okLabel = 'OK', danger = false){
+  return new Promise(res => {
+    const d = $('#dlgConfirm');
+    $('#cMsg').textContent = msg;
+    const ok = $('#cOk'); ok.textContent = okLabel; ok.classList.toggle('danger-fill', danger);
+    d.returnValue = '';
+    d.addEventListener('close', () => res(d.returnValue === 'ok'), { once:true });
+    d.showModal();
+  });
+}
+
+/* ---------- チケット追加・編集 ---------- */
+let editingTicket = null;
+const blank = (number, note) => ({ id:uid(), number, note, status:'stock', wishId:'', name:'', userId:'', email:'', method:'', memo:'', mail:{}, site:{}, transferredAt:null, doneAt:null });
+
+function normToken(s){
+  return s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+          .replace(/(\d)[ー‐‑–—−－~〜～](?=\d)/g, '$1-').trim();
+}
+function parseNumbers(raw){
+  const out = [];
+  const tokens = raw.split(/[,、，\s]+/).map(normToken).filter(Boolean);
+  for (const tk of tokens){
+    const r = tk.match(/^(\d+)-(\d+)$/);
+    if (r){
+      const a = parseInt(r[1], 10), b = parseInt(r[2], 10);
+      if (a > b) return { error:`「${tk}」は開始番号が終了番号より大きくなっています` };
+      if (b - a >= 1000) return { error:'一度に追加できるのは1000枚までです' };
+      const width = r[1].startsWith('0') ? r[1].length : 0;
+      for (let i = a; i <= b; i++) out.push(String(i).padStart(width, '0'));
+    } else out.push(tk);
+  }
+  if (out.length > 2000) return { error:'一度に追加できるのは2000枚までです' };
+  return { list: out };
+}
+function openTicketDlg(id){
+  editingTicket = id;
+  const t = id ? find(id) : null;
+  $('#tTitle').textContent = t ? `No.${t.number} を編集` : 'チケットを追加';
+  $('#tNumber').value = t ? t.number : '';
+  $('#tNote').value = t ? t.note : '';
+  $('#tHint').hidden = !!t;
+  $('#tSubmit').textContent = t ? '保存' : '追加';
+  $('#tErr').textContent = '';
+  $('#dlgTicket').showModal();
+  $('#tNumber').focus();
+}
+$('#fTicket').addEventListener('submit', e => {
+  e.preventDefault();
+  const err = m => { $('#tErr').textContent = m; };
+  const raw = $('#tNumber').value.trim(), note = $('#tNote').value.trim();
+  if (!raw) return err('番号を入力してください');
+
+  if (editingTicket){
+    const t = find(editingTicket); if (!t) return;
+    const n = normToken(raw);
+    if (state.tickets.some(x => x.id !== t.id && x.number === n)) return err(`No.${n} はすでに登録されています`);
+    t.number = n; t.note = note;
+    toast(`No.${n} を保存しました`);
+  } else {
+    const { list, error } = parseNumbers(raw);
+    if (error) return err(error);
+    const exist = new Set(state.tickets.map(t => t.number));
+    const added = [], dups = [];
+    list.forEach(n => { if (exist.has(n) || added.includes(n)) dups.push(n); else added.push(n); });
+    if (!added.length) return err(`${dups.slice(0, 5).join('、')} はすでに登録されています`);
+    added.forEach(n => state.tickets.push(blank(n, note)));
+    ui.tab = 'stock';
+    toast(`${added.length}枚を追加しました` + (dups.length ? `（重複${dups.length}件はスキップ）` : ''));
+  }
+  save(); $('#dlgTicket').close(); render();
+});
+
+/* ---------- 譲渡 ---------- */
+let editingTransfer = null;
+$('#xMethods').innerHTML = METHODS.map(m =>
+  `<label class="opt"><input type="radio" name="method" value="${m.key}"><span>${esc(m.label)}</span></label>`).join('');
+
+function updatePanels(){
+  const r = document.querySelector('input[name=method]:checked');
+  const k = r ? kindOf(r.value) : null;
+  $('#pDay').hidden = k !== 'day';
+  $('#pMail').hidden = k !== 'mail';
+  $('#pSite').hidden = k !== 'site';
+}
+$('#xMethods').addEventListener('change', updatePanels);
+
+function fillWishSelect(t, selected){
+  const opts = state.wishes.map((w, i) => ({ w, i, rem: remaining(w) }))
+    .filter(x => x.rem > 0 || x.w.id === t.wishId);
+  $('#xWish').innerHTML = '<option value="">選ばない</option>' + opts.map(x => {
+    const label = `${x.i + 1}. ${x.w.name || '(名前なし)'}${x.w.userId ? ' / ' + x.w.userId : ''}（${x.rem > 0 ? '残' + x.rem + '枚' : '割当済み'}）`;
+    return `<option value="${esc(x.w.id)}">${esc(label)}</option>`;
+  }).join('');
+  $('#xWish').value = selected && opts.some(x => x.w.id === selected) ? selected : '';
+}
+function fillFromWish(wid){
+  const w = findWish(wid); if (!w) return;
+  $('#xName').value = w.name; $('#xUser').value = w.userId; $('#xEmail').value = w.email;
+}
+$('#xWish').addEventListener('change', e => { if (e.target.value) fillFromWish(e.target.value); });
+
+function openTransfer(id, wishId){
+  const t = find(id); if (!t) return;
+  editingTransfer = id;
+  const isNew = t.status === 'stock';
+  $('#xTitle').textContent = isNew ? `譲渡する：No.${t.number}` : `譲渡情報を編集：No.${t.number}`;
+  $('#xSubmit').textContent = isNew ? '譲渡リストへ移す' : '保存';
+  $('#xName').value = t.name || ''; $('#xUser').value = t.userId || ''; $('#xEmail').value = t.email || '';
+  document.querySelectorAll('input[name=method]').forEach(r => r.checked = r.value === t.method);
+  const m = t.mail || {}, s = t.site || {};
+  $('#xDayMemo').value = t.method === 'day' ? (t.memo || '') : '';
+  $('#mRecipient').value = m.recipient || ''; $('#mZip').value = m.zip || ''; $('#mShip').value = m.shipDate || '';
+  $('#mAddress').value = m.address || ''; $('#mTracking').value = m.tracking || ''; $('#mNote').value = m.note || '';
+  $('#mSent').checked = !!m.sent;
+  $('#sDate').value = s.date || ''; $('#sMemo').value = s.memo || '';
+  fillWishSelect(t, isNew && wishId ? wishId : t.wishId);
+  if (isNew && wishId) fillFromWish(wishId);
+  $('#xErr').textContent = '';
+  updatePanels();
+  $('#dlgTransfer').showModal();
+}
+$('#fTransfer').addEventListener('submit', e => {
+  e.preventDefault();
+  const t = find(editingTransfer); if (!t) return;
+  const r = document.querySelector('input[name=method]:checked');
+  if (!r){ $('#xErr').textContent = '譲渡方法を選んでください'; return; }
+  const v = sel => $(sel).value.trim();
+  const wasStock = t.status === 'stock', prev = t.status;
+  t.name = v('#xName'); t.userId = v('#xUser'); t.email = v('#xEmail'); t.method = r.value;
+  t.wishId = $('#xWish').value;
+  const kind = kindOf(t.method);
+  t.memo = kind === 'day' ? v('#xDayMemo') : '';
+  t.mail = kind === 'mail'
+    ? { recipient:v('#mRecipient'), zip:v('#mZip'), address:v('#mAddress'), tracking:v('#mTracking'), shipDate:$('#mShip').value, note:v('#mNote'), sent:$('#mSent').checked }
+    : {};
+  t.site = kind === 'site' ? { date:$('#sDate').value, memo:v('#sMemo') } : {};
+  t.status = kind === 'mail' ? (t.mail.sent ? 'done' : 'transfer') : (prev === 'done' ? 'done' : 'transfer');
+  if (wasStock) t.transferredAt = new Date().toISOString();
+  if (t.status === 'done'){ if (prev !== 'done') t.doneAt = new Date().toISOString(); } else t.doneAt = null;
+  save(); $('#dlgTransfer').close(); render();
+  toast(wasStock ? `No.${t.number} を${t.status === 'done' ? '渡し済み' : '譲渡'}リストへ移しました` : `No.${t.number} を保存しました`);
+});
+
+/* ---------- 希望者 ---------- */
+let editingWish = null, assignWish = null;
+function openWishDlg(id){
+  editingWish = id;
+  const w = id ? findWish(id) : null;
+  $('#wTitle').textContent = w ? '希望者を編集' : '希望者を追加';
+  $('#wName').value = w ? w.name : ''; $('#wUser').value = w ? w.userId : ''; $('#wEmail').value = w ? w.email : '';
+  $('#wQty').value = w ? w.qty : 1; $('#wMemo').value = w ? w.memo : '';
+  $('#wSubmit').textContent = w ? '保存' : '追加';
+  $('#wErr').textContent = '';
+  $('#dlgWish').showModal();
+  $('#wName').focus();
+}
+$('#fWish').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = s => $(s).value.trim();
+  const name = v('#wName'), userId = v('#wUser'), email = v('#wEmail');
+  if (!name && !userId && !email){ $('#wErr').textContent = '名前・ユーザーID・メールアドレスのいずれかを入力してください'; return; }
+  let qty = parseInt($('#wQty').value, 10); if (!(qty >= 1)) qty = 1; if (qty > 99) qty = 99;
+  const data = { name, userId, email, qty, memo: v('#wMemo') };
+  if (editingWish){
+    const w = findWish(editingWish); if (w) Object.assign(w, data);
+    toast('希望者を保存しました');
+  } else {
+    state.wishes.push({ id: uid(), createdAt: new Date().toISOString(), ...data });
+    ui.tab = 'wish'; ui.filter = 'all';
+    toast('希望者を追加しました');
+  }
+  save(); $('#dlgWish').close(); render();
+});
+$('#fAssign').addEventListener('submit', e => {
+  e.preventDefault();
+  const tid = $('#aTicket').value;
+  $('#dlgAssign').close();
+  if (tid && assignWish) openTransfer(tid, assignWish);
+});
+const csvCell = x => {
+  let s = String(x ?? '');
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return '"' + s.replace(/"/g, '""') + '"';
+};
+
+/* ---------- アクション ---------- */
+function toggleSent(el){
+  const t = find(el.dataset.id); if (!t) return;
+  t.mail = t.mail || {};
+  t.mail.sent = el.checked;
+  t.status = el.checked ? 'done' : 'transfer';
+  t.doneAt = el.checked ? new Date().toISOString() : null;
+  save(); render();
+  toast(el.checked ? `No.${t.number} を渡し済みリストへ移しました` : `No.${t.number} を譲渡リストへ戻しました`);
+}
+
+const actions = {
+  tab(el){ ui.tab = el.dataset.key; ui.filter = 'all'; render(); },
+  filter(el){ ui.filter = el.dataset.key; render(); },
+  add(){ openTicketDlg(null); },
+  addWish(){ openWishDlg(null); },
+  editWish(el){ openWishDlg(el.dataset.id); },
+  async deleteWish(el){
+    const w = findWish(el.dataset.id); if (!w) return;
+    const n = linkedTickets(w).length;
+    const who = w.name || w.userId || w.email || 'この希望者';
+    if (!await ask(`${who} を希望者リストから削除しますか？` + (n ? `割り当て済みの ${n} 枚はそのまま残ります。` : ''), '削除する', true)) return;
+    state.tickets.forEach(t => { if (t.wishId === w.id) t.wishId = ''; });
+    state.wishes = state.wishes.filter(x => x.id !== w.id);
+    save(); render(); toast('希望者を削除しました');
+  },
+  assign(el){
+    const w = findWish(el.dataset.id); if (!w) return;
+    const stock = sortTickets(state.tickets.filter(t => t.status === 'stock'));
+    if (!stock.length){ toast('未譲渡のチケットがありません。先にチケットを追加してください'); return; }
+    assignWish = w.id;
+    $('#aInfo').textContent = `${w.name || w.userId || w.email}さん（残り ${remaining(w)} 枚）`;
+    $('#aTicket').innerHTML = stock.map(t => `<option value="${esc(t.id)}">No.${esc(t.number)}${t.note ? '　' + esc(t.note) : ''}</option>`).join('');
+    $('#dlgAssign').showModal();
+  },
+  exportWishCsv(){
+    const head = ['順番','名前','ユーザーID','メールアドレス','希望枚数','割当済み枚数','割当番号','メモ'];
+    const rows = state.wishes.map((w, i) => {
+      const L = linkedTickets(w);
+      return [i + 1, w.name, w.userId, w.email, w.qty, L.length, L.map(t => t.number).join(' '), w.memo].map(csvCell).join(',');
+    });
+    const d = new Date();
+    download(`haneda-wishes-${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}.csv`,
+      '\ufeff' + [head.map(csvCell).join(','), ...rows].join('\r\n'), 'text/csv;charset=utf-8');
+  },
+  data(){ $('#dataMsg').textContent = ''; $('#dlgData').showModal(); },
+  open(el){ openTransfer(el.dataset.id); },
+  transfer(el){ openTransfer(el.dataset.id); },
+  editTicket(el){ openTicketDlg(el.dataset.id); },
+  async delete(el){
+    const t = find(el.dataset.id); if (!t) return;
+    if (!await ask(`No.${t.number} を削除しますか？`, '削除する', true)) return;
+    state.tickets = state.tickets.filter(x => x.id !== t.id);
+    save(); render(); toast(`No.${t.number} を削除しました`);
+  },
+  markDone(el){
+    const t = find(el.dataset.id); if (!t) return;
+    t.status = 'done'; t.doneAt = new Date().toISOString();
+    save(); render(); toast(`No.${t.number} を渡し済みリストへ移しました`);
+  },
+  undoDone(el){
+    const t = find(el.dataset.id); if (!t) return;
+    t.status = 'transfer'; t.doneAt = null;
+    save(); render(); toast(`No.${t.number} を譲渡リストへ戻しました`);
+  },
+  async cancelTransfer(el){
+    const t = find(el.dataset.id); if (!t) return;
+    if (!await ask(`No.${t.number} の譲渡を取り消して、未譲渡に戻しますか？入力した譲渡情報は消えます。`, '取り消す', true)) return;
+    Object.assign(t, { status:'stock', wishId:'', name:'', userId:'', email:'', method:'', memo:'', mail:{}, site:{}, transferredAt:null, doneAt:null });
+    save(); render(); toast(`No.${t.number} を未譲渡に戻しました`);
+  },
+  exportJson(){
+    const d = new Date();
+    download(`haneda-tickets-${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}.json`,
+      JSON.stringify({ version:1, exportedAt:d.toISOString(), tickets:state.tickets, wishes:state.wishes }, null, 2), 'application/json');
+  },
+  exportCsv(){
+    const head = ['番号','備考','状態','譲渡方法','名前','ユーザーID','メールアドレス','当日メモ','宛先','郵便番号','住所','配送・追跡','発送日','郵送備考','送付完了','現場日付','現場メモ','渡し済み日'];
+    const cell = x => {
+      let s = String(x ?? '');
+      if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+      return '"' + s.replace(/"/g, '""') + '"';
+    };
+    const rows = sortTickets(state.tickets).map(t => {
+      const m = t.mail || {}, s = t.site || {};
+      return [t.number, t.note, STATUS_LABEL[t.status], mLabel(t.method), t.name, t.userId, t.email, t.memo,
+        m.recipient, m.zip, m.address, m.tracking, m.shipDate, m.note, t.method === 'mail' ? (m.sent ? '済' : '') : '',
+        s.date, s.memo, fmtISO(t.doneAt)].map(cell).join(',');
+    });
+    const d = new Date();
+    download(`haneda-tickets-${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}.csv`,
+      '\ufeff' + [head.map(cell).join(','), ...rows].join('\r\n'), 'text/csv;charset=utf-8');
+  },
+  async clearAll(){
+    if (!await ask('すべてのデータ（チケットと希望者）を削除します。この操作は元に戻せません。先にバックアップを書き出しましたか？', 'すべて削除', true)) return;
+    state.tickets = []; state.wishes = []; save(); $('#dlgData').close(); render(); toast('すべてのデータを削除しました');
+  },
+};
+
+function download(name, text, type){
+  const blob = new Blob([text], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+$('#fileImport').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  const msg = $('#dataMsg'); msg.textContent = '';
+  try{
+    const d = JSON.parse(await f.text());
+    if (!d || !Array.isArray(d.tickets)) throw new Error('format');
+    if (!await ask(`現在のデータを、ファイルの ${d.tickets.length} 枚で置き換えます。よろしいですか？`, '置き換える', true)) return;
+    state.tickets = d.tickets.map(sanitize);
+    state.wishes = Array.isArray(d.wishes) ? d.wishes.map(sanitizeWish) : [];
+    save(); $('#dlgData').close(); render(); toast('バックアップから復元しました');
+  }catch(err){
+    msg.textContent = '読み込めませんでした。このアプリで書き出したJSONファイルを選んでください。';
+  }
+});
+
+/* ---------- イベント ---------- */
+document.addEventListener('click', e => {
+  const t = e.target;
+  if (t.tagName === 'DIALOG' && t.hasAttribute('data-light')){ t.close(); return; }
+  const c = t.closest('[data-close]');
+  if (c){ c.closest('dialog').close(); return; }
+  const el = t.closest('[data-action]');
+  if (!el || el.type === 'checkbox') return;
+  const fn = actions[el.dataset.action];
+  if (fn) fn(el);
+});
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el.dataset && el.dataset.action === 'toggleSent') toggleSent(el);
+});
+document.addEventListener('toggle', e => {
+  if (e.target.id === 'mapDetails') ui.mapOpen = e.target.open;
+}, true);
+$('#dlgData').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.matches('label[for=fileImport]')) $('#fileImport').click();
+});
+
+/* ---------- 起動 ---------- */
+$('#notice').hidden = storageOk;
+render();
+})();
+</script>
+</body>
+</html>
